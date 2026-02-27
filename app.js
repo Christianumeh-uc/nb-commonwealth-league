@@ -1,7 +1,3 @@
-// ==========================
-// FIREBASE CONFIG
-// ==========================
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import {
   getFirestore,
@@ -11,8 +7,13 @@ import {
   deleteDoc,
   doc,
   onSnapshot,
-  updateDoc
+  updateDoc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+/* ==============================
+   FIREBASE CONFIG
+============================== */
 
 const firebaseConfig = {
   apiKey: "AIzaSyDf3K6CIwN86J6kSoXe2B5MPioxzXhlVmI",
@@ -26,9 +27,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// ==========================
-// GLOBALS
-// ==========================
+/* ==============================
+   GLOBALS
+============================== */
 
 const ADMIN_PASSCODE = "NB2026";
 let currentMatch = null;
@@ -45,9 +46,9 @@ const teams = [
   "SANTA RESERVE FC"
 ];
 
-// ==========================
-// LOGIN SYSTEM
-// ==========================
+/* ==============================
+   LOGIN SYSTEM
+============================== */
 
 window.openLogin = function () {
   document.getElementById("loginModal").style.display = "flex";
@@ -69,9 +70,9 @@ window.logout = function () {
   document.getElementById("logoutBtn").style.display = "none";
 };
 
-// ==========================
-// INIT TEAM DROPDOWNS
-// ==========================
+/* ==============================
+   INIT TEAM DROPDOWNS
+============================== */
 
 function populateTeams() {
   const home = document.getElementById("homeTeam");
@@ -87,13 +88,14 @@ function populateTeams() {
 
 populateTeams();
 
-// ==========================
-// PLAYER REGISTRATION
-// ==========================
+/* ==============================
+   PLAYER REGISTRATION
+============================== */
 
 window.registerPlayer = async function () {
   const team = document.getElementById("teamSelect").value;
   const name = document.getElementById("playerName").value.trim();
+
   if (!name) return alert("Enter player name");
 
   await addDoc(collection(db, "players"), {
@@ -106,9 +108,9 @@ window.registerPlayer = async function () {
   alert("Player registered");
 };
 
-// ==========================
-// MATCH + SCORER FLOW
-// ==========================
+/* ==============================
+   MATCH ENTRY FLOW
+============================== */
 
 window.startGoalEntry = function () {
   const home = document.getElementById("homeTeam").value;
@@ -126,9 +128,7 @@ window.startGoalEntry = function () {
   goalInputs.innerHTML = "";
 
   for (let i = 0; i < totalGoals; i++) {
-    goalInputs.innerHTML += `
-      <select class="scorerSelect"></select>
-    `;
+    goalInputs.innerHTML += `<select class="scorerSelect"></select>`;
   }
 
   loadPlayersForScorers();
@@ -141,18 +141,18 @@ async function loadPlayersForScorers() {
 
   selects.forEach(sel => {
     sel.innerHTML = "";
-    snapshot.forEach(doc => {
-      const p = doc.data();
+    snapshot.forEach(docSnap => {
+      const p = docSnap.data();
       if (p.team === currentMatch.home || p.team === currentMatch.away) {
-        sel.innerHTML += `<option value="${doc.id}">${p.name} (${p.team})</option>`;
+        sel.innerHTML += `<option value="${docSnap.id}">${p.name} (${p.team})</option>`;
       }
     });
   });
 }
 
-// ==========================
-// SAVE MATCH
-// ==========================
+/* ==============================
+   SAVE MATCH
+============================== */
 
 window.saveMatch = async function () {
 
@@ -166,44 +166,37 @@ window.saveMatch = async function () {
   for (let sel of selects) {
     const playerId = sel.value;
     const playerRef = doc(db, "players", playerId);
+    const playerSnap = await getDoc(playerRef);
 
-    const playerSnap = await getDocs(collection(db, "players"));
-    let playerData = null;
-
-    playerSnap.forEach(d => {
-      if (d.id === playerId) playerData = d.data();
-    });
-
-    if (playerData) {
+    if (playerSnap.exists()) {
+      const playerData = playerSnap.data();
       await updateDoc(playerRef, {
         goals: playerData.goals + 1
       });
     }
   }
 
-  alert("Match saved successfully!");
   document.getElementById("goalEntrySection").style.display = "none";
+  alert("Match saved successfully!");
 };
-}
 
-// ==========================
-// LIVE TABLE
-// ==========================
+/* ==============================
+   LIVE TABLE
+============================== */
 
 onSnapshot(collection(db, "matches"), snapshot => {
 
   let stats = {};
   teams.forEach(t => stats[t] = { MP:0,W:0,D:0,L:0,GF:0,GA:0,PTS:0 });
 
-  snapshot.forEach(doc => {
-    const m = doc.data();
+  snapshot.forEach(docSnap => {
+    const m = docSnap.data();
 
     stats[m.home].MP++;
     stats[m.away].MP++;
 
     stats[m.home].GF += m.homeGoals;
     stats[m.home].GA += m.awayGoals;
-
     stats[m.away].GF += m.awayGoals;
     stats[m.away].GA += m.homeGoals;
 
@@ -247,14 +240,14 @@ function renderTable(stats) {
     });
 }
 
-// ==========================
-// TOP SCORERS
-// ==========================
+/* ==============================
+   TOP SCORERS
+============================== */
 
 onSnapshot(collection(db, "players"), snapshot => {
 
   let players = [];
-  snapshot.forEach(doc => players.push({id:doc.id,...doc.data()}));
+  snapshot.forEach(docSnap => players.push({id:docSnap.id,...docSnap.data()}));
 
   players.sort((a,b)=> b.goals - a.goals);
 
@@ -279,9 +272,13 @@ function updateChart(players) {
         label: "Goals",
         data: players.map(p=>p.goals)
       }]
-// ==========================
-// FIXTURE GENERATOR
-// ==========================
+    }
+  });
+}
+
+/* ==============================
+   FIXTURES
+============================== */
 
 window.generateFixtures = async function () {
 
@@ -309,12 +306,7 @@ window.generateFixtures = async function () {
       for (let i = 0; i < half; i++) {
         let home = cycle === 0 ? left[i] : right[i];
         let away = cycle === 0 ? right[i] : left[i];
-
-        matches.push({
-          home,
-          away,
-          played: false
-        });
+        matches.push({ home, away });
       }
 
       rounds.push({
@@ -333,42 +325,28 @@ window.generateFixtures = async function () {
   alert("Fixtures generated successfully!");
 };
 
-
-// ==========================
-// DISPLAY FIXTURES
-// ==========================
-
 onSnapshot(collection(db, "fixtures"), snapshot => {
 
   const container = document.getElementById("fixturesContainer");
   container.innerHTML = "";
 
   let rounds = [];
-  snapshot.forEach(doc => rounds.push(doc.data()));
+  snapshot.forEach(docSnap => rounds.push(docSnap.data()));
   rounds.sort((a,b)=> a.round - b.round);
 
   rounds.forEach(r => {
-
     const div = document.createElement("div");
     div.innerHTML = `<strong>Round ${r.round}</strong><br>`;
-
     r.matches.forEach(m => {
-      div.innerHTML += `
-        ${m.home} vs ${m.away}
-        ${m.played ? "✅" : ""}
-        <br>
-      `;
+      div.innerHTML += `${m.home} vs ${m.away}<br>`;
     });
-
     container.appendChild(div);
   });
-
 });
 
-
-// ==========================
-// MATCH HISTORY + EDIT/DELETE
-// ==========================
+/* ==============================
+   MATCH HISTORY
+============================== */
 
 onSnapshot(collection(db, "matches"), snapshot => {
 
@@ -386,34 +364,24 @@ onSnapshot(collection(db, "matches"), snapshot => {
       </div>
     `;
   });
-
 });
 
-
 window.deleteMatch = async function (id) {
-
   if (!confirm("Delete this match?")) return;
-
   await deleteDoc(doc(db, "matches", id));
-  alert("Match deleted");
-
 };
 
-
-// ==========================
-// RESET LEAGUE
-// ==========================
+/* ==============================
+   RESET LEAGUE
+============================== */
 
 window.resetLeague = async function () {
-
   if (!confirm("Reset entire league results?")) return;
 
   const snapshot = await getDocs(collection(db, "matches"));
-
   for (let d of snapshot.docs) {
     await deleteDoc(doc(db, "matches", d.id));
   }
 
   alert("League reset successfully!");
-
 };
