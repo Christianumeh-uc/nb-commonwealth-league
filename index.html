@@ -91,7 +91,7 @@ const adminEmail = "christianumeh.uc@gmail.com";
 
 document.getElementById("loginBtn").onclick = () => {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider);
+  auth.signInWithRedirect(provider);
 };
 
 document.getElementById("logoutBtn").onclick = () => {
