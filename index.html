@@ -133,7 +133,88 @@ const teams = [
 "AMASI FC","BARTHO BOYS FC","BUZZY GLOBAL FC",
 "CHUMIC STANDARD FC","FC GALAXY","JOHN MARSHAL FC",
 "NWA ANAYOEZE FC","SANTA RESERVE FC"
-];
+];// ===== FIXTURE GENERATOR =====
+window.generateFixtures = async function () {
+
+  const snapshot = await onSnapshot(collection(db, "fixtures"), () => {});
+  const existingFixtures = document.getElementById("fixturesContainer");
+
+  if (existingFixtures.innerHTML.trim() !== "") {
+    alert("Fixtures already generated.");
+    return;
+  }
+
+  let rounds = [];
+  let teamList = [...teams];
+
+  if (teamList.length % 2 !== 0) {
+    teamList.push("BYE");
+  }
+
+  const totalRounds = teamList.length - 1;
+  const half = teamList.length / 2;
+
+  for (let cycle = 0; cycle < 2; cycle++) {
+
+    let rotating = teamList.slice(1);
+
+    for (let round = 0; round < totalRounds; round++) {
+
+      let matches = [];
+      const left = [teamList[0], ...rotating.slice(0, half - 1)];
+      const right = rotating.slice(half - 1).reverse();
+
+      for (let i = 0; i < half; i++) {
+        let home = cycle === 0 ? left[i] : right[i];
+        let away = cycle === 0 ? right[i] : left[i];
+
+        if (home !== "BYE" && away !== "BYE") {
+          matches.push({ home, away });
+        }
+      }
+
+      rounds.push({
+        round: rounds.length + 1,
+        matches: matches
+      });
+
+      rotating.unshift(rotating.pop());
+    }
+  }
+
+  for (let r of rounds) {
+    await addDoc(collection(db, "fixtures"), r);
+  }
+
+  alert("Fixtures Generated Successfully!");
+};
+
+
+// ===== DISPLAY FIXTURES =====
+onSnapshot(collection(db, "fixtures"), (snapshot) => {
+
+  const container = document.getElementById("fixturesContainer");
+  container.innerHTML = "";
+
+  snapshot.forEach(doc => {
+
+    const data = doc.data();
+
+    const roundDiv = document.createElement("div");
+    roundDiv.style.marginBottom = "15px";
+    roundDiv.innerHTML = "<strong>Round " + data.round + "</strong>";
+
+    data.matches.forEach(match => {
+      const matchLine = document.createElement("div");
+      matchLine.textContent = match.home + " vs " + match.away;
+      roundDiv.appendChild(matchLine);
+    });
+
+    container.appendChild(roundDiv);
+
+  });
+
+});
 
 onSnapshot(collection(db, "matches"), (snapshot) => {
 
