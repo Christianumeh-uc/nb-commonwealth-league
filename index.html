@@ -3,12 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nation Builders Commonwealth League</title>
-
-<link rel="manifest" href="manifest.json">
-<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js"></script>
+<title>Nation Builders Commonwealth 5-a-Side League</title>
 
 <style>
 body {
@@ -30,6 +25,10 @@ button {
   padding: 8px 12px;
   margin: 5px;
   border-radius: 5px;
+}
+input {
+  padding: 6px;
+  margin: 4px;
 }
 table {
   width: 100%;
@@ -66,16 +65,29 @@ th {
 </div>
 
 <h3 style="padding-left:10px;">League Table</h3>
-<table id="leagueTable">
-<tr>
-<th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th>
-<th>GF</th><th>GA</th><th>GD</th><th>PTS</th>
-</tr>
-</table>
-  <script type="module">
+<table id="leagueTable"></table>
+
+<script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
+
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithRedirect, 
+  getRedirectResult,
+  onAuthStateChanged,
+  signOut,
+  setPersistence,
+  browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  onSnapshot 
+} from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDf3K6CIwN86J6kSoXe2B5MPioxzXhlVmI",
@@ -88,10 +100,13 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+await setPersistence(auth, browserLocalPersistence);
 const db = getFirestore(app);
 
 const adminEmail = "christianumeh.uc@gmail.com";
 const provider = new GoogleAuthProvider();
+
+getRedirectResult(auth).catch(() => {});
 
 document.getElementById("loginBtn").onclick = () => {
   signInWithRedirect(auth, provider);
@@ -113,7 +128,7 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-async function addMatch() {
+window.addMatch = async function() {
   await addDoc(collection(db, "matches"), {
     home: homeTeam.value,
     homeGoals: parseInt(homeGoals.value),
@@ -121,7 +136,7 @@ async function addMatch() {
     awayGoals: parseInt(awayGoals.value),
     timestamp: Date.now()
   });
-}
+};
 
 const teams = [
 "AMASI FC","BARTHO BOYS FC","BUZZY GLOBAL FC",
@@ -181,8 +196,8 @@ onSnapshot(collection(db, "matches"), (snapshot) => {
 </tr>`;
     });
 });
-      </script>
+
 </script>
 
 </body>
-    </html>
+</html>
