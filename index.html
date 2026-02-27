@@ -190,15 +190,22 @@ window.generateFixtures = async function () {
 };
 
 
-// ===== DISPLAY FIXTURES =====
+
+// ===== DISPLAY FIXTURES (SORTED) =====
 onSnapshot(collection(db, "fixtures"), (snapshot) => {
 
   const container = document.getElementById("fixturesContainer");
   container.innerHTML = "";
 
-  snapshot.forEach(doc => {
+  let rounds = [];
 
-    const data = doc.data();
+  snapshot.forEach(doc => {
+    rounds.push(doc.data());
+  });
+
+  rounds.sort((a, b) => a.round - b.round);
+
+  rounds.forEach(data => {
 
     const roundDiv = document.createElement("div");
     roundDiv.style.marginBottom = "15px";
@@ -211,6 +218,10 @@ onSnapshot(collection(db, "fixtures"), (snapshot) => {
     });
 
     container.appendChild(roundDiv);
+
+  });
+
+});
 
   });
 
