@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nation Builders Commonwealth 5-a-Side League</title>
+<title>NB League</title>
 
 <style>
-body { font-family: Arial; margin:0; background:#f4f8ff; color:#002b7f; }
+body { font-family: Arial; margin:0; background:#f4f8ff; }
 header { background:#002b7f; color:white; padding:20px; text-align:center; }
 button { background:#0056ff; color:white; border:none; padding:8px 14px; margin:5px; border-radius:6px; cursor:pointer; }
 input { padding:6px; margin:5px; }
@@ -53,7 +53,6 @@ th { background:#002b7f; color:white; }
 <h3 style="padding-left:10px;">League Table</h3>
 <table id="leagueTable"></table>
 
-<!-- Login Modal -->
 <div id="loginModal">
   <div id="loginBox">
     <h3>Admin Passcode</h3>
@@ -80,13 +79,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ========= ADMIN PASSCODE ========= */
-/* CHANGE THIS PASSCODE TO WHATEVER YOU WANT */
 const ADMIN_PASSCODE = "NB2026";
 
 window.openLogin = function() {
   document.getElementById("loginModal").style.display = "flex";
-}
+};
 
 window.checkPasscode = function() {
   const input = document.getElementById("passcodeInput").value;
@@ -97,14 +94,13 @@ window.checkPasscode = function() {
   } else {
     alert("Incorrect passcode");
   }
-}
+};
 
 window.logout = function() {
   document.getElementById("adminPanel").style.display = "none";
   document.getElementById("logoutBtn").style.display = "none";
-}
+};
 
-/* ========= MATCH SUBMISSION ========= */
 window.addMatch = async function() {
 
   const home = document.getElementById("homeTeam").value;
@@ -130,9 +126,6 @@ window.addMatch = async function() {
   document.getElementById("awayTeam").value = "";
   document.getElementById("awayGoals").value = "";
 };
-};
-
-/* ========= LEAGUE TABLE ========= */
 
 const teams = [
 "AMASI FC","BARTHO BOYS FC","BUZZY GLOBAL FC",
