@@ -166,23 +166,24 @@ window.saveMatch = async function () {
   for (let sel of selects) {
     const playerId = sel.value;
     const playerRef = doc(db, "players", playerId);
+
     const playerSnap = await getDocs(collection(db, "players"));
-    await updateDoc(playerRef, {
-      goals: (await (await fetchPlayer(playerId))).goals + 1
+    let playerData = null;
+
+    playerSnap.forEach(d => {
+      if (d.id === playerId) playerData = d.data();
     });
+
+    if (playerData) {
+      await updateDoc(playerRef, {
+        goals: playerData.goals + 1
+      });
+    }
   }
 
-  alert("Match saved");
+  alert("Match saved successfully!");
   document.getElementById("goalEntrySection").style.display = "none";
 };
-
-async function fetchPlayer(id) {
-  const snap = await getDocs(collection(db, "players"));
-  let player = null;
-  snap.forEach(doc => {
-    if (doc.id === id) player = doc.data();
-  });
-  return player;
 }
 
 // ==========================
