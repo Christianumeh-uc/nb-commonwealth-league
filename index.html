@@ -106,10 +106,15 @@ const db = getFirestore(app);
 const adminEmail = "christianumeh.uc@gmail.com";
 const provider = new GoogleAuthProvider();
 
-getRedirectResult(auth).catch(() => {});
 
-document.getElementById("loginBtn").onclick = () => {
-  signInWithRedirect(auth, provider);
+document.getElementById("loginBtn").onclick = async () => {
+  try {
+    const result = await auth.signInWithPopup(provider);
+  } catch (error) {
+    console.error(error);
+    alert("Login failed. Please try again.");
+  }
+};
 };
 
 document.getElementById("logoutBtn").onclick = () => {
