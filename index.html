@@ -72,8 +72,11 @@ th {
 <th>GF</th><th>GA</th><th>GD</th><th>PTS</th>
 </tr>
 </table>
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-<script>
 const firebaseConfig = {
   apiKey: "AIzaSyDf3K6CIwN86J6kSoXe2B5MPioxzXhlVmI",
   authDomain: "nb-commonwealth-league.firebaseapp.com",
@@ -83,22 +86,22 @@ const firebaseConfig = {
   appId: "1:751087586532:web:a229a63c422a3b075270f1"
 };
 
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
 const adminEmail = "christianumeh.uc@gmail.com";
+const provider = new GoogleAuthProvider();
 
 document.getElementById("loginBtn").onclick = () => {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithRedirect(provider);
+  signInWithRedirect(auth, provider);
 };
 
 document.getElementById("logoutBtn").onclick = () => {
-  auth.signOut();
+  signOut(auth);
 };
 
-auth.onAuthStateChanged(user => {
+onAuthStateChanged(auth, (user) => {
   if (user && user.email === adminEmail) {
     document.getElementById("adminPanel").style.display = "block";
     document.getElementById("logoutBtn").style.display = "inline";
@@ -110,8 +113,8 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-function addMatch() {
-  db.collection("matches").add({
+async function addMatch() {
+  await addDoc(collection(db, "matches"), {
     home: homeTeam.value,
     homeGoals: parseInt(homeGoals.value),
     away: awayTeam.value,
@@ -126,7 +129,7 @@ const teams = [
 "NWA ANAYOEZE FC","SANTA RESERVE FC"
 ];
 
-db.collection("matches").onSnapshot(snapshot => {
+onSnapshot(collection(db, "matches"), (snapshot) => {
   let stats = {};
   teams.forEach(t => stats[t]={MP:0,W:0,D:0,L:0,GF:0,GA:0,PTS:0});
 
@@ -162,7 +165,7 @@ db.collection("matches").onSnapshot(snapshot => {
 
   Object.keys(stats)
     .map(t => ({team:t,...stats[t],GD:stats[t].GF-stats[t].GA}))
-    .sort((a,b)=>b.PTS-b.PTS || b.GD-a.GD)
+    .sort((a,b)=> b.PTS - a.PTS || b.GD - a.GD)
     .forEach(r=>{
       table.innerHTML+=`
 <tr>
@@ -178,6 +181,7 @@ db.collection("matches").onSnapshot(snapshot => {
 </tr>`;
     });
 });
+      </script>
 </script>
 
 </body>
