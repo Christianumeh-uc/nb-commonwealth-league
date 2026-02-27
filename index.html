@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nation Builders Commonwealth League</title>
+
+<link rel="manifest" href="manifest.json">
+<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f4f8ff;
+  color: #002b7f;
+}
+header {
+  background: #002b7f;
+  color: white;
+  padding: 15px;
+  text-align: center;
+}
+button {
+  background: #0056ff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  margin: 5px;
+  border-radius: 5px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+th, td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+}
+th {
+  background: #002b7f;
+  color: white;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h2>Nation Builders Commonwealth 5-a-Side League</h2>
+  <button id="loginBtn">Admin Login</button>
+  <button id="logoutBtn" style="display:none;">Logout</button>
+</header>
+
+<div id="adminPanel" style="display:none; padding:10px;">
+  <h3>Enter Match Result</h3>
+  <input id="homeTeam" placeholder="Home Team">
+  <input id="homeGoals" type="number" placeholder="Goals">
+  <input id="awayTeam" placeholder="Away Team">
+  <input id="awayGoals" type="number" placeholder="Goals">
+  <button onclick="addMatch()">Submit</button>
+</div>
+
+<h3 style="padding-left:10px;">League Table</h3>
+<table id="leagueTable">
+<tr>
+<th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th>
+<th>GF</th><th>GA</th><th>GD</th><th>PTS</th>
+</tr>
+</table>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDf3K6CIwN86J6kSoXe2B5MPioxzXhlVmI",
+  authDomain: "nb-commonwealth-league.firebaseapp.com",
+  projectId: "nb-commonwealth-league",
+  storageBucket: "nb-commonwealth-league.firebasestorage.app",
+  messagingSenderId: "751087586532",
+  appId: "1:751087586532:web:a229a63c422a3b075270f1"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const adminEmail = "christianumeh.uc@gmail.com";
+
+document.getElementById("loginBtn").onclick = () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider);
+};
+
+document.getElementById("logoutBtn").onclick = () => {
+  auth.signOut();
+};
+
+auth.onAuthStateChanged(user => {
+  if (user && user.email === adminEmail) {
+    document.getElementById("adminPanel").style.display = "block";
+    document.getElementById("logoutBtn").style.display = "inline";
+    document.getElementById("loginBtn").style.display = "none";
+  } else {
+    document.getElementById("adminPanel").style.display = "none";
+    document.getElementById("logoutBtn").style.display = "none";
+    document.getElementById("loginBtn").style.display = "inline";
+  }
+});
+
+function addMatch() {
+  db.collection("matches").add({
+    home: homeTeam.value,
+    homeGoals: parseInt(homeGoals.value),
+    away: awayTeam.value,
+    awayGoals: parseInt(awayGoals.value),
+    timestamp: Date.now()
+  });
+}
+
+const teams = [
+"AMASI FC","BARTHO BOYS FC","BUZZY GLOBAL FC",
+"CHUMIC STANDARD FC","FC GALAXY","JOHN MARSHAL FC",
+"NWA ANAYOEZE FC","SANTA RESERVE FC"
+];
+
+db.collection("matches").onSnapshot(snapshot => {
+  let stats = {};
+  teams.forEach(t => stats[t]={MP:0,W:0,D:0,L:0,GF:0,GA:0,PTS:0});
+
+  snapshot.forEach(doc => {
+    let m = doc.data();
+    if(!stats[m.home] || !stats[m.away]) return;
+
+    stats[m.home].MP++;
+    stats[m.away].MP++;
+    stats[m.home].GF += m.homeGoals;
+    stats[m.home].GA += m.awayGoals;
+    stats[m.away].GF += m.awayGoals;
+    stats[m.away].GA += m.homeGoals;
+
+    if(m.homeGoals > m.awayGoals){
+      stats[m.home].W++; stats[m.away].L++;
+      stats[m.home].PTS+=3;
+    } else if(m.homeGoals < m.awayGoals){
+      stats[m.away].W++; stats[m.home].L++;
+      stats[m.away].PTS+=3;
+    } else {
+      stats[m.home].D++; stats[m.away].D++;
+      stats[m.home].PTS++; stats[m.away].PTS++;
+    }
+  });
+
+  let table = document.getElementById("leagueTable");
+  table.innerHTML = `
+<tr>
+<th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th>
+<th>GF</th><th>GA</th><th>GD</th><th>PTS</th>
+</tr>`;
+
+  Object.keys(stats)
+    .map(t => ({team:t,...stats[t],GD:stats[t].GF-stats[t].GA}))
+    .sort((a,b)=>b.PTS-b.PTS || b.GD-a.GD)
+    .forEach(r=>{
+      table.innerHTML+=`
+<tr>
+<td>${r.team}</td>
+<td>${r.MP}</td>
+<td>${r.W}</td>
+<td>${r.D}</td>
+<td>${r.L}</td>
+<td>${r.GF}</td>
+<td>${r.GA}</td>
+<td>${r.GD}</td>
+<td>${r.PTS}</td>
+</tr>`;
+    });
+});
+</script>
+
+</body>
+    </html>
