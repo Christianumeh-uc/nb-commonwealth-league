@@ -34,6 +34,7 @@ const db = getFirestore(app);
 const ADMIN_PASSCODE = "NB2026";
 let currentMatch = null;
 let scorerChart = null;
+let seasonLocked = false;
 
 const teams = [
   "AMASI FC",
@@ -71,6 +72,15 @@ window.logout = () => {
 };
 
 /* =========================
+   SEASON LOCK
+========================= */
+
+window.toggleSeasonLock = () => {
+  seasonLocked = !seasonLocked;
+  alert(seasonLocked ? "Season Locked 🔒" : "Season Unlocked 🔓");
+};
+
+/* =========================
    INIT DROPDOWNS
 ========================= */
 
@@ -92,6 +102,8 @@ populateTeams();
 ========================= */
 
 window.registerPlayer = async () => {
+  if (seasonLocked) return alert("Season is locked.");
+
   const team = document.getElementById("teamSelect").value;
   const name = document.getElementById("playerName").value.trim();
   if (!name) return alert("Enter player name");
@@ -111,6 +123,8 @@ window.registerPlayer = async () => {
 ========================= */
 
 window.startGoalEntry = () => {
+  if (seasonLocked) return alert("Season is locked.");
+
   const home = document.getElementById("homeTeam").value;
   const away = document.getElementById("awayTeam").value;
   const homeGoals = parseInt(document.getElementById("homeGoals").value);
@@ -153,6 +167,7 @@ async function loadPlayersForScorers() {
 ========================= */
 
 window.saveMatch = async () => {
+  if (seasonLocked) return alert("Season is locked.");
 
   await addDoc(collection(db, "matches"), {
     ...currentMatch,
@@ -175,7 +190,6 @@ window.saveMatch = async () => {
   const fixtureSnapshot = await getDocs(collection(db, "fixtures"));
   for (let fixtureDoc of fixtureSnapshot.docs) {
     const fixtureData = fixtureDoc.data();
-
     const updatedMatches = fixtureData.matches.map(match => {
       if (
         (match.home === currentMatch.home && match.away === currentMatch.away) ||
@@ -196,16 +210,48 @@ window.saveMatch = async () => {
 };
 
 /* =========================
+   HEAD-TO-HEAD LOGIC
+========================= */
+
+function applyHeadToHead(sortedTeams, matches) {
+  for (let i = 0; i < sortedTeams.length - 1; i++) {
+    let a = sortedTeams[i];
+    let b = sortedTeams[i + 1];
+
+    if (a.PTS === b.PTS) {
+      matches.forEach(m => {
+        if (
+          (m.home === a.team && m.away === b.team) ||
+          (m.home === b.team && m.away === a.team)
+        ) {
+          if (
+            (m.home === a.team && m.homeGoals < m.awayGoals) ||
+            (m.away === a.team && m.awayGoals < m.homeGoals)
+          ) {
+            [sortedTeams[i], sortedTeams[i + 1]] =
+              [sortedTeams[i + 1], sortedTeams[i]];
+          }
+        }
+      });
+    }
+  }
+  return sortedTeams;
+}
+
+/* =========================
    LIVE TABLE
 ========================= */
 
 onSnapshot(collection(db, "matches"), snapshot => {
 
   let stats = {};
+  let matchList = [];
+
   teams.forEach(t => stats[t] = { MP:0,W:0,D:0,L:0,GF:0,GA:0,PTS:0 });
 
   snapshot.forEach(docSnap => {
     const m = docSnap.data();
+    matchList.push(m);
 
     stats[m.home].MP++;
     stats[m.away].MP++;
@@ -225,10 +271,16 @@ onSnapshot(collection(db, "matches"), snapshot => {
     }
   });
 
-  renderTable(stats);
+  let sorted = Object.keys(stats)
+    .map(t => ({team:t,...stats[t],GD:stats[t].GF-stats[t].GA}))
+    .sort((a,b)=> b.PTS - a.PTS || b.GD - a.GD || b.GF - a.GF);
+
+  sorted = applyHeadToHead(sorted, matchList);
+
+  renderTable(sorted);
 });
 
-function renderTable(stats) {
+function renderTable(sorted) {
   const table = document.getElementById("leagueTable");
   table.innerHTML = `
   <tr>
@@ -236,146 +288,51 @@ function renderTable(stats) {
   <th>GF</th><th>GA</th><th>GD</th><th>PTS</th>
   </tr>`;
 
-  Object.keys(stats)
-    .map(t => ({team:t,...stats[t],GD:stats[t].GF-stats[t].GA}))
-    .sort((a,b)=> b.PTS - a.PTS || b.GD - a.GD)
-    .forEach(r=>{
-      table.innerHTML += `
-      <tr>
-      <td>${r.team}</td>
-      <td>${r.MP}</td>
-      <td>${r.W}</td>
-      <td>${r.D}</td>
-      <td>${r.L}</td>
-      <td>${r.GF}</td>
-      <td>${r.GA}</td>
-      <td>${r.GD}</td>
-      <td>${r.PTS}</td>
-      </tr>`;
-    });
-}
-
-/* =========================
-   TOP SCORERS
-========================= */
-
-onSnapshot(collection(db, "players"), snapshot => {
-
-  let players = [];
-  snapshot.forEach(docSnap => players.push({id:docSnap.id,...docSnap.data()}));
-  players.sort((a,b)=> b.goals - a.goals);
-
-  document.getElementById("scorerList").innerHTML =
-    players.map(p => `${p.name} (${p.team}) - ${p.goals} goals`).join("<br>");
-
-  updateChart(players.slice(0,5));
-});
-
-function updateChart(players) {
-  const ctx = document.getElementById("scorerChart");
-  if (scorerChart) scorerChart.destroy();
-
-  scorerChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: players.map(p=>p.name),
-      datasets: [{
-        label: "Goals",
-        data: players.map(p=>p.goals)
-      }]
-    }
+  sorted.forEach(r=>{
+    table.innerHTML += `
+    <tr>
+    <td>${r.team}</td>
+    <td>${r.MP}</td>
+    <td>${r.W}</td>
+    <td>${r.D}</td>
+    <td>${r.L}</td>
+    <td>${r.GF}</td>
+    <td>${r.GA}</td>
+    <td>${r.GD}</td>
+    <td>${r.PTS}</td>
+    </tr>`;
   });
 }
 
 /* =========================
-   FIXTURES
+   EDIT + DELETE
 ========================= */
 
-window.generateFixtures = async () => {
-
-  const existing = await getDocs(collection(db, "fixtures"));
-  if (!existing.empty) return alert("Fixtures already generated.");
-
-  let rounds = [];
-  let teamList = [...teams];
-  const totalRounds = teamList.length - 1;
-  const half = teamList.length / 2;
-
-  for (let cycle = 0; cycle < 2; cycle++) {
-
-    let rotating = teamList.slice(1);
-
-    for (let round = 0; round < totalRounds; round++) {
-
-      let matches = [];
-      const left = [teamList[0], ...rotating.slice(0, half - 1)];
-      const right = rotating.slice(half - 1).reverse();
-
-      for (let i = 0; i < half; i++) {
-        let home = cycle === 0 ? left[i] : right[i];
-        let away = cycle === 0 ? right[i] : left[i];
-        matches.push({ home, away, played:false });
-      }
-
-      rounds.push({
-        round: rounds.length + 1,
-        matches
-      });
-
-      rotating.unshift(rotating.pop());
-    }
-  }
-
-  for (let r of rounds) {
-    await addDoc(collection(db, "fixtures"), r);
-  }
-
-  alert("Fixtures generated successfully!");
+window.deleteMatch = async (id) => {
+  if (!confirm("Delete this match?")) return;
+  await deleteDoc(doc(db, "matches", id));
 };
 
-onSnapshot(collection(db, "fixtures"), snapshot => {
+window.editMatch = async (id) => {
+  const newHome = prompt("Enter new home goals:");
+  const newAway = prompt("Enter new away goals:");
 
-  const container = document.getElementById("fixturesContainer");
-  container.innerHTML = "";
+  if (newHome === null || newAway === null) return;
 
-  let rounds = [];
-  snapshot.forEach(docSnap => rounds.push(docSnap.data()));
-  rounds.sort((a,b)=> a.round - b.round);
-
-  rounds.forEach(r => {
-    const div = document.createElement("div");
-    div.innerHTML = `<strong>Round ${r.round}</strong><br>`;
-    r.matches.forEach(m => {
-      div.innerHTML += `${m.home} vs ${m.away} ${m.played ? "✅" : ""}<br>`;
-    });
-    container.appendChild(div);
+  await updateDoc(doc(db, "matches", id), {
+    homeGoals: parseInt(newHome),
+    awayGoals: parseInt(newAway)
   });
-});
 
-/* =========================
-   MATCH HISTORY
-========================= */
-
-onSnapshot(collection(db, "matches"), snapshot => {
-
-  const history = document.getElementById("matchHistory");
-  history.innerHTML = "";
-
-  snapshot.forEach(docSnap => {
-    const m = docSnap.data();
-    history.innerHTML += `
-      <div>
-        ${m.home} ${m.homeGoals} - ${m.awayGoals} ${m.away}
-      </div>
-    `;
-  });
-});
+  alert("Match updated");
+};
 
 /* =========================
    RESET
 ========================= */
 
 window.resetLeague = async () => {
+  if (seasonLocked) return alert("Season is locked.");
   if (!confirm("Reset entire league results?")) return;
 
   const snapshot = await getDocs(collection(db, "matches"));
