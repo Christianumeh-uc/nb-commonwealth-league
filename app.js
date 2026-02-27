@@ -11,9 +11,9 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
-/* ==============================
+/* =========================
    FIREBASE CONFIG
-============================== */
+========================= */
 
 const firebaseConfig = {
   apiKey: "AIzaSyDf3K6CIwN86J6kSoXe2B5MPioxzXhlVmI",
@@ -27,9 +27,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-/* ==============================
+/* =========================
    GLOBALS
-============================== */
+========================= */
 
 const ADMIN_PASSCODE = "NB2026";
 let currentMatch = null;
@@ -46,15 +46,15 @@ const teams = [
   "SANTA RESERVE FC"
 ];
 
-/* ==============================
-   LOGIN SYSTEM
-============================== */
+/* =========================
+   LOGIN
+========================= */
 
-window.openLogin = function () {
+window.openLogin = () => {
   document.getElementById("loginModal").style.display = "flex";
 };
 
-window.checkPasscode = function () {
+window.checkPasscode = () => {
   const input = document.getElementById("passcodeInput").value;
   if (input === ADMIN_PASSCODE) {
     document.getElementById("adminPanel").style.display = "block";
@@ -65,14 +65,14 @@ window.checkPasscode = function () {
   }
 };
 
-window.logout = function () {
+window.logout = () => {
   document.getElementById("adminPanel").style.display = "none";
   document.getElementById("logoutBtn").style.display = "none";
 };
 
-/* ==============================
-   INIT TEAM DROPDOWNS
-============================== */
+/* =========================
+   INIT DROPDOWNS
+========================= */
 
 function populateTeams() {
   const home = document.getElementById("homeTeam");
@@ -85,17 +85,15 @@ function populateTeams() {
     teamSelect.innerHTML += `<option value="${t}">${t}</option>`;
   });
 }
-
 populateTeams();
 
-/* ==============================
+/* =========================
    PLAYER REGISTRATION
-============================== */
+========================= */
 
-window.registerPlayer = async function () {
+window.registerPlayer = async () => {
   const team = document.getElementById("teamSelect").value;
   const name = document.getElementById("playerName").value.trim();
-
   if (!name) return alert("Enter player name");
 
   await addDoc(collection(db, "players"), {
@@ -108,11 +106,11 @@ window.registerPlayer = async function () {
   alert("Player registered");
 };
 
-/* ==============================
+/* =========================
    MATCH ENTRY FLOW
-============================== */
+========================= */
 
-window.startGoalEntry = function () {
+window.startGoalEntry = () => {
   const home = document.getElementById("homeTeam").value;
   const away = document.getElementById("awayTeam").value;
   const homeGoals = parseInt(document.getElementById("homeGoals").value);
@@ -150,39 +148,56 @@ async function loadPlayersForScorers() {
   });
 }
 
-/* ==============================
+/* =========================
    SAVE MATCH
-============================== */
+========================= */
 
-window.saveMatch = async function () {
+window.saveMatch = async () => {
 
   await addDoc(collection(db, "matches"), {
     ...currentMatch,
     timestamp: Date.now()
   });
 
+  // Update player goals
   const selects = document.querySelectorAll(".scorerSelect");
-
   for (let sel of selects) {
-    const playerId = sel.value;
-    const playerRef = doc(db, "players", playerId);
-    const playerSnap = await getDoc(playerRef);
-
-    if (playerSnap.exists()) {
-      const playerData = playerSnap.data();
+    const playerRef = doc(db, "players", sel.value);
+    const snap = await getDoc(playerRef);
+    if (snap.exists()) {
       await updateDoc(playerRef, {
-        goals: playerData.goals + 1
+        goals: snap.data().goals + 1
       });
     }
+  }
+
+  // Mark fixture as played
+  const fixtureSnapshot = await getDocs(collection(db, "fixtures"));
+  for (let fixtureDoc of fixtureSnapshot.docs) {
+    const fixtureData = fixtureDoc.data();
+
+    const updatedMatches = fixtureData.matches.map(match => {
+      if (
+        (match.home === currentMatch.home && match.away === currentMatch.away) ||
+        (match.home === currentMatch.away && match.away === currentMatch.home)
+      ) {
+        return { ...match, played: true };
+      }
+      return match;
+    });
+
+    await updateDoc(doc(db, "fixtures", fixtureDoc.id), {
+      matches: updatedMatches
+    });
   }
 
   document.getElementById("goalEntrySection").style.display = "none";
   alert("Match saved successfully!");
 };
 
-/* ==============================
+/* =========================
    LIVE TABLE
-============================== */
+========================= */
 
 onSnapshot(collection(db, "matches"), snapshot => {
 
@@ -240,28 +255,24 @@ function renderTable(stats) {
     });
 }
 
-/* ==============================
+/* =========================
    TOP SCORERS
-============================== */
+========================= */
 
 onSnapshot(collection(db, "players"), snapshot => {
 
   let players = [];
   snapshot.forEach(docSnap => players.push({id:docSnap.id,...docSnap.data()}));
-
   players.sort((a,b)=> b.goals - a.goals);
 
-  const list = document.getElementById("scorerList");
-  list.innerHTML = players.map(p =>
-    `${p.name} (${p.team}) - ${p.goals} goals`
-  ).join("<br>");
+  document.getElementById("scorerList").innerHTML =
+    players.map(p => `${p.name} (${p.team}) - ${p.goals} goals`).join("<br>");
 
   updateChart(players.slice(0,5));
 });
 
 function updateChart(players) {
   const ctx = document.getElementById("scorerChart");
-
   if (scorerChart) scorerChart.destroy();
 
   scorerChart = new Chart(ctx, {
@@ -276,17 +287,14 @@ function updateChart(players) {
   });
 }
 
-/* ==============================
+/* =========================
    FIXTURES
-============================== */
+========================= */
 
-window.generateFixtures = async function () {
+window.generateFixtures = async () => {
 
   const existing = await getDocs(collection(db, "fixtures"));
-  if (!existing.empty) {
-    alert("Fixtures already generated.");
-    return;
-  }
+  if (!existing.empty) return alert("Fixtures already generated.");
 
   let rounds = [];
   let teamList = [...teams];
@@ -306,7 +314,7 @@ window.generateFixtures = async function () {
       for (let i = 0; i < half; i++) {
         let home = cycle === 0 ? left[i] : right[i];
         let away = cycle === 0 ? right[i] : left[i];
-        matches.push({ home, away });
+        matches.push({ home, away, played:false });
       }
 
       rounds.push({
@@ -338,15 +346,15 @@ onSnapshot(collection(db, "fixtures"), snapshot => {
     const div = document.createElement("div");
     div.innerHTML = `<strong>Round ${r.round}</strong><br>`;
     r.matches.forEach(m => {
-      div.innerHTML += `${m.home} vs ${m.away}<br>`;
+      div.innerHTML += `${m.home} vs ${m.away} ${m.played ? "✅" : ""}<br>`;
     });
     container.appendChild(div);
   });
 });
 
-/* ==============================
+/* =========================
    MATCH HISTORY
-============================== */
+========================= */
 
 onSnapshot(collection(db, "matches"), snapshot => {
 
@@ -355,27 +363,19 @@ onSnapshot(collection(db, "matches"), snapshot => {
 
   snapshot.forEach(docSnap => {
     const m = docSnap.data();
-    const id = docSnap.id;
-
     history.innerHTML += `
       <div>
         ${m.home} ${m.homeGoals} - ${m.awayGoals} ${m.away}
-        <button onclick="deleteMatch('${id}')">Delete</button>
       </div>
     `;
   });
 });
 
-window.deleteMatch = async function (id) {
-  if (!confirm("Delete this match?")) return;
-  await deleteDoc(doc(db, "matches", id));
-};
+/* =========================
+   RESET
+========================= */
 
-/* ==============================
-   RESET LEAGUE
-============================== */
-
-window.resetLeague = async function () {
+window.resetLeague = async () => {
   if (!confirm("Reset entire league results?")) return;
 
   const snapshot = await getDocs(collection(db, "matches"));
