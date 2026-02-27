@@ -279,6 +279,141 @@ function updateChart(players) {
         label: "Goals",
         data: players.map(p=>p.goals)
       }]
+// ==========================
+// FIXTURE GENERATOR
+// ==========================
+
+window.generateFixtures = async function () {
+
+  const existing = await getDocs(collection(db, "fixtures"));
+  if (!existing.empty) {
+    alert("Fixtures already generated.");
+    return;
+  }
+
+  let rounds = [];
+  let teamList = [...teams];
+  const totalRounds = teamList.length - 1;
+  const half = teamList.length / 2;
+
+  for (let cycle = 0; cycle < 2; cycle++) {
+
+    let rotating = teamList.slice(1);
+
+    for (let round = 0; round < totalRounds; round++) {
+
+      let matches = [];
+      const left = [teamList[0], ...rotating.slice(0, half - 1)];
+      const right = rotating.slice(half - 1).reverse();
+
+      for (let i = 0; i < half; i++) {
+        let home = cycle === 0 ? left[i] : right[i];
+        let away = cycle === 0 ? right[i] : left[i];
+
+        matches.push({
+          home,
+          away,
+          played: false
+        });
+      }
+
+      rounds.push({
+        round: rounds.length + 1,
+        matches
+      });
+
+      rotating.unshift(rotating.pop());
     }
+  }
+
+  for (let r of rounds) {
+    await addDoc(collection(db, "fixtures"), r);
+  }
+
+  alert("Fixtures generated successfully!");
+};
+
+
+// ==========================
+// DISPLAY FIXTURES
+// ==========================
+
+onSnapshot(collection(db, "fixtures"), snapshot => {
+
+  const container = document.getElementById("fixturesContainer");
+  container.innerHTML = "";
+
+  let rounds = [];
+  snapshot.forEach(doc => rounds.push(doc.data()));
+  rounds.sort((a,b)=> a.round - b.round);
+
+  rounds.forEach(r => {
+
+    const div = document.createElement("div");
+    div.innerHTML = `<strong>Round ${r.round}</strong><br>`;
+
+    r.matches.forEach(m => {
+      div.innerHTML += `
+        ${m.home} vs ${m.away}
+        ${m.played ? "✅" : ""}
+        <br>
+      `;
+    });
+
+    container.appendChild(div);
   });
-}
+
+});
+
+
+// ==========================
+// MATCH HISTORY + EDIT/DELETE
+// ==========================
+
+onSnapshot(collection(db, "matches"), snapshot => {
+
+  const history = document.getElementById("matchHistory");
+  history.innerHTML = "";
+
+  snapshot.forEach(docSnap => {
+    const m = docSnap.data();
+    const id = docSnap.id;
+
+    history.innerHTML += `
+      <div>
+        ${m.home} ${m.homeGoals} - ${m.awayGoals} ${m.away}
+        <button onclick="deleteMatch('${id}')">Delete</button>
+      </div>
+    `;
+  });
+
+});
+
+
+window.deleteMatch = async function (id) {
+
+  if (!confirm("Delete this match?")) return;
+
+  await deleteDoc(doc(db, "matches", id));
+  alert("Match deleted");
+
+};
+
+
+// ==========================
+// RESET LEAGUE
+// ==========================
+
+window.resetLeague = async function () {
+
+  if (!confirm("Reset entire league results?")) return;
+
+  const snapshot = await getDocs(collection(db, "matches"));
+
+  for (let d of snapshot.docs) {
+    await deleteDoc(doc(db, "matches", d.id));
+  }
+
+  alert("League reset successfully!");
+
+};
