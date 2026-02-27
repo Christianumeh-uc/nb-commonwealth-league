@@ -105,15 +105,31 @@ window.logout = function() {
 }
 
 /* ========= MATCH SUBMISSION ========= */
-
 window.addMatch = async function() {
+
+  const home = document.getElementById("homeTeam").value;
+  const homeGoals = parseInt(document.getElementById("homeGoals").value);
+  const away = document.getElementById("awayTeam").value;
+  const awayGoals = parseInt(document.getElementById("awayGoals").value);
+
+  if (!home || !away || isNaN(homeGoals) || isNaN(awayGoals)) {
+    alert("Please fill all fields correctly.");
+    return;
+  }
+
   await addDoc(collection(db, "matches"), {
-    home: homeTeam.value,
-    homeGoals: parseInt(homeGoals.value),
-    away: awayTeam.value,
-    awayGoals: parseInt(awayGoals.value),
+    home: home,
+    homeGoals: homeGoals,
+    away: away,
+    awayGoals: awayGoals,
     timestamp: Date.now()
   });
+
+  document.getElementById("homeTeam").value = "";
+  document.getElementById("homeGoals").value = "";
+  document.getElementById("awayTeam").value = "";
+  document.getElementById("awayGoals").value = "";
+};
 };
 
 /* ========= LEAGUE TABLE ========= */
